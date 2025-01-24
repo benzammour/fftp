@@ -46,6 +46,39 @@ class CustomFTPHandler(FTPHandler):
     def on_file_downloaded(self, file):
         logging.info(f"File downloaded: {file}")
 
+    def on_file_stored(self, file):
+        logging.info(f"File stored: {file}")
+
+    def on_file_retrieved(self, file):
+        logging.info(f"File retrieved: {file}")
+
+    def on_file_aborted(self, file):
+        logging.info(f"File transfer aborted: {file}")
+
+    def on_file_changed(self, file):
+        logging.info(f"File changed: {file}")
+
+    def on_file_moved(self, old_file, new_file):
+        logging.info(f"File moved from '{old_file}' to '{new_file}'")
+
+    def on_file_uploaded(self, file):
+        logging.info(f"File uploaded: {file}")
+
+    def on_connect(self):
+        logger.info(f"Client connected: {self.remote_ip}")
+
+    def on_disconnect(self):
+        logger.info(f"Client disconnected: {self.remote_ip}")
+
+    def on_logout(self, username):
+        logger.info(f"User logged out: {username}")
+
+    def on_incomplete_file_received(self, file):
+        logger.warning(f"Incomplete file received: {file}")
+
+    def on_incomplete_file_sent(self, file):
+        logger.warning(f"Incomplete file received: {file}")
+
 class TempFTPServer:
     def __init__(self, directory, port, allow_anonymous):
         self.directory = directory
