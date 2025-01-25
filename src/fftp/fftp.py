@@ -1,12 +1,10 @@
 import os
-import random
-import string
 import logging
 import argparse
 import signal
-from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import ThreadedFTPServer
+from pyftpdlib.authorizers import DummyAuthorizer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -24,6 +22,10 @@ stream_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
+MSG_LOGIN="Login successful"
+MSG_CLOSE="Goodbye"
+
+# Class to log every action the user takes
 class CustomFTPHandler(FTPHandler):
     def on_login(self, username):
         logging.info(f"User '{username}' logged in successfully.")
@@ -79,25 +81,59 @@ class CustomFTPHandler(FTPHandler):
     def on_incomplete_file_sent(self, file):
         logger.warning(f"Incomplete file received: {file}")
 
-class TempFTPServer:
-    def __init__(self, directory, port, allow_anonymous):
+
+class AnyUserAuthorizer(DummyAuthorizer):
+    """
+    Authorization class that allows any combination of username/password.
+    """
+    def __init__(self, directory):
+        DummyAuthorizer.__init__(self)
+        self.directory = directory
+        self.default_params = {
+            'pwd': '',
+            'home': self.directory,
+            'perm': 'elr',
+            'operms': {},
+            'msg_login': MSG_LOGIN,
+            'msg_quit': MSG_CLOSE,
+        }
+
+    def validate_authentication(self, username, password, handler):
+        return True
+
+    def get_home_dir(self, username):
+        return self.directory
+
+    def has_user(self, username):
+        if username in self.user_table:
+            return True
+
+        self.add_user(username, '', self.directory)
+        return True
+
+    def has_perm(self, username, perm, path = None) -> bool:
+        if username not in self.user_table:
+            # add user manually and not via add_user due to infinite recursion
+            self.user_table[username] = self.default_params
+
+        return True
+
+    def get_msg_login(self, username: str) -> str:
+        return MSG_LOGIN
+
+    def get_msg_quit(self, username: str) -> str:
+        return MSG_CLOSE
+
         self.directory = directory
         self.port = port
         self.allow_anonymous = allow_anonymous
         self.server = None
 
     def start(self):
-        authorizer = DummyAuthorizer()
-
-        # create random user
-        username = self.generate_username()
-        password = self.generate_password()
-        authorizer.add_user(username, password, self.directory, perm='elradfmwMT')
-        logging.info(f"Temporary user created: '{username}' with password '{password}'")
-
         # anonymous user if set
         if self.allow_anonymous:
             authorizer.add_anonymous(self.directory)
+        authorizer = AnyUserAuthorizer(directory=self.directory)
 
         handler = CustomFTPHandler
         handler.authorizer = authorizer
@@ -112,14 +148,6 @@ class TempFTPServer:
         if self.server:
             self.server.close_all()
         logging.info("FTP server shut down.")
-
-    @staticmethod
-    def generate_username(length=8):
-        return ''.join(random.choices(string.ascii_letters, k=length))
-
-    @staticmethod
-    def generate_password(length=12):
-        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def signal_handler(sig, frame):
     logging.info("Received Ctrl+C, shutting down...")
