@@ -124,15 +124,13 @@ class AnyUserAuthorizer(DummyAuthorizer):
     def get_msg_quit(self, username: str) -> str:
         return MSG_CLOSE
 
+class FastFTPServer:
+    def __init__(self, directory, port):
         self.directory = directory
         self.port = port
-        self.allow_anonymous = allow_anonymous
         self.server = None
 
     def start(self):
-        # anonymous user if set
-        if self.allow_anonymous:
-            authorizer.add_anonymous(self.directory)
         authorizer = AnyUserAuthorizer(directory=self.directory)
 
         handler = CustomFTPHandler
@@ -156,9 +154,8 @@ def signal_handler(sig, frame):
 
 def main():
     parser = argparse.ArgumentParser(description='Temporary FTP Server')
-    parser.add_argument('--dir', required=True, help='Directory to serve files from')
-    parser.add_argument('--port', type=int, default=21, help='Port to run the FTP server on')
-    parser.add_argument('--anonymous', action='store_true', help='Allow anonymous FTP access')
+    parser.add_argument('--dir', '-d', required=True, help='Directory to serve files from')
+    parser.add_argument('--port', '-p', type=int, default=21, help='Port to run the FTP server on')
 
     args = parser.parse_args()
 
@@ -167,7 +164,7 @@ def main():
         return
 
     global ftp_server
-    ftp_server = TempFTPServer(args.dir, args.port, args.anonymous)
+    ftp_server = FastFTPServer(args.dir, args.port)
     signal.signal(signal.SIGINT, signal_handler)
     ftp_server.start()
 
